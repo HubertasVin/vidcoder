@@ -116,7 +116,7 @@ func chooseRecommendedCRF(input string) (int, error) {
 
 	switch {
 	case width >= 3840:
-		return 30, nil
+		return 34, nil
 	case width >= 1920:
 		return 32, nil
 	case width >= 720:
@@ -129,7 +129,7 @@ func chooseRecommendedCRF(input string) (int, error) {
 func rateToCRF(rate int64) int {
 	switch {
 	case rate >= 3_500_000:
-		return 30
+		return 34
 	case rate >= 1_800_000:
 		return 32
 	case rate >= 900_000:

@@ -56,8 +56,8 @@ func buildFFmpegArgs(cfg config, rec recommendedParams) ([]string, error) {
 	if cfg.UseRecommendedVideo && rec.HasVideoPrefs {
 		args = append(args, rec.VideoArgs...)
 	}
-	if cfg.VideoBitrate != "" {
-		args = append(args, "-b:v", cfg.VideoBitrate)
+	if cfg.VideoCRF != "" {
+		args = append(args, "-crf", cfg.VideoCRF)
 	}
 	if cfg.UseRecommendedAll && cfg.VideoCodec == "libsvtav1" {
 		args = append(args, "-preset", "3")
