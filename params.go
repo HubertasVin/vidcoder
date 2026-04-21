@@ -28,33 +28,29 @@ const (
 func getRecommendedParams(input string) (recommendedParams, error) {
 	var rec recommendedParams
 
-	pixFmt, err := ffprobeOutput(input, ffprobeVideoPixelFormat)
-	if err != nil {
-		return rec, err
-	}
-
-	svtParams := "tune=0:enable-dlf=0:enable-cdef=0"
-	pixOut := ""
-	if strings.Contains(pixFmt, "10le") || strings.Contains(pixFmt, "10be") {
-		svtParams = "tune=0:input-depth=10:enable-dlf=0:enable-cdef=0"
-		pixOut = "yuv420p10le"
-	}
-
 	crf, err := getCRF(input)
 	if err != nil {
 		return rec, err
 	}
-
+	svtParams, err := getSVTAV1Params(input)
+	if err != nil {
+		return rec, err
+	}
 	rec.VideoArgs = []string{
 		"-crf", strconv.Itoa(crf),
 		"-svtav1-params", svtParams,
 	}
+
 	rec.VideoPreset, err = getPreset(input)
 	if err != nil {
 		return rec, err
 	}
-	if pixOut != "" {
-		rec.VideoArgs = append(rec.VideoArgs, "-pix_fmt", pixOut)
+	pixFmt, err := getPixFmt(input)
+	if err != nil {
+		return rec, err
+	}
+	if pixFmt != "" {
+		rec.VideoArgs = append(rec.VideoArgs, "-pix_fmt", pixFmt)
 	}
 	rec.HasVideoPrefs = true
 
@@ -75,6 +71,45 @@ func getRecommendedParams(input string) (recommendedParams, error) {
 
 	return rec, nil
 }
+
+func getPixFmt(input string) (string, error) {
+	pixFmt, err := ffprobeOutput(input, ffprobeVideoPixelFormat)
+	if err != nil {
+		return "", err
+	}
+
+	if is10Bit(pixFmt) {
+		return "yuv420p10le", nil
+	}
+	return "", nil
+}	
+
+func getSVTAV1Params(input string) (string, error) {
+	// width, err := ffprobeOutput(input, ffprobeVideoWidth)
+	// if err != nil {
+	// 	return "", err
+	// }
+	pixFmt, err := ffprobeOutput(input, ffprobeVideoPixelFormat)
+	if err != nil {
+		return "", err
+	}
+
+	svtParams := "tune=0:enable-fg=1"
+	// if width >= "3840" {
+	// 	svtParams += ":enable-dlf=0:enable-cdef=0"
+	// } else {
+	// 	svtParams += ":enable-fg=1"
+	// }
+	if is10Bit(pixFmt) {
+		svtParams += ":input-depth=10"
+	}
+
+	return svtParams, nil
+}
+
+func is10Bit(pixFmt string) bool {
+	return strings.Contains(pixFmt, "10le") || strings.Contains(pixFmt, "10be")
+}	
 
 func getCRF(input string) (int, error) {
 	durationRaw, err := ffprobeOutput(input, ffprobeDuration)
