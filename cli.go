@@ -29,6 +29,7 @@ type config struct {
 	AudioCodec string
 
 	VideoCRF     string
+	VideoPreset  string
 	AudioBitrate string
 
 	Resolution string
@@ -136,6 +137,7 @@ func newFlagSet(cfg *config, output io.Writer) (*pflag.FlagSet, *bool) {
 	fs.StringVar(&cfg.VideoCodec, "video-codec", "", "video codec")
 	fs.StringVar(&cfg.AudioCodec, "audio-codec", "", "audio codec")
 	fs.StringVar(&cfg.VideoCRF, "crf", "", "video quality CRF value")
+	fs.StringVar(&cfg.VideoPreset, "preset", "", "video encoder preset")
 	fs.StringVar(&cfg.AudioBitrate, "audio-bitrate", "", "audio bitrate")
 	fs.StringVar(&cfg.Resolution, "resolution", "", "output resolution (WxH)")
 	fs.StringVarP(&cfg.ScaleValue, "scale", "s", "", "scale factor (*2, /2, x1.5, 1.5)")

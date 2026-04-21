@@ -96,7 +96,9 @@ func buildFFmpegArgs(cfg config, rec recommendedParams) ([]string, error) {
 	if cfg.VideoCRF != "" {
 		args = append(args, "-crf", cfg.VideoCRF)
 	}
-	if cfg.UseRecommendedAll && cfg.VideoCodec == "libsvtav1" {
+	if cfg.VideoPreset != "" {
+		args = append(args, "-preset", cfg.VideoPreset)
+	} else if cfg.UseRecommendedAll && cfg.VideoCodec == "libsvtav1" {
 		args = append(args, "-preset", "3")
 	}
 
