@@ -107,7 +107,7 @@ func getCRF(input string) (int, error) {
 
 	switch {
 	case width >= 3840:
-		return 26, nil
+		return 24, nil
 	case width >= 1920:
 		return 32, nil
 	case width >= 720:
@@ -136,7 +136,7 @@ func getPreset(input string) (string, error) {
 func rateToCRF(rate int64) int {
 	switch {
 	case rate >= 3_500_000:
-		return 26
+		return 24
 	case rate >= 1_800_000:
 		return 32
 	case rate >= 900_000:
