@@ -85,21 +85,12 @@ func getPixFmt(input string) (string, error) {
 }	
 
 func getSVTAV1Params(input string) (string, error) {
-	// width, err := ffprobeOutput(input, ffprobeVideoWidth)
-	// if err != nil {
-	// 	return "", err
-	// }
 	pixFmt, err := ffprobeOutput(input, ffprobeVideoPixelFormat)
 	if err != nil {
 		return "", err
 	}
 
-	svtParams := "tune=0:film-grain=8"
-	// if width >= "3840" {
-	// 	svtParams += ":enable-dlf=0:enable-cdef=0"
-	// } else {
-	// 	svtParams += ":enable-fg=1"
-	// }
+	svtParams := "tune=0:enable-dlf=0:enable-cdef=0"
 	if is10Bit(pixFmt) {
 		svtParams += ":input-depth=10"
 	}
