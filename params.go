@@ -11,20 +11,24 @@ import (
 
 type recommendedParams struct {
 	VideoArgs     []string
+	VideoPreset   string
 	AudioBitrate  string
 	HasVideoPrefs bool
 }
 
+type ffprobeField int
+
+const (
+	ffprobeVideoPixelFormat ffprobeField = iota
+	ffprobeAudioBitrate
+	ffprobeDuration
+	ffprobeVideoWidth
+)
+
 func getRecommendedParams(input string) (recommendedParams, error) {
 	var rec recommendedParams
 
-	pixFmt, err := ffprobeOutput(
-		"-v", "error",
-		"-select_streams", "v:0",
-		"-show_entries", "stream=pix_fmt",
-		"-of", "csv=p=0",
-		input,
-	)
+	pixFmt, err := ffprobeOutput(input, ffprobeVideoPixelFormat)
 	if err != nil {
 		return rec, err
 	}
@@ -36,7 +40,7 @@ func getRecommendedParams(input string) (recommendedParams, error) {
 		pixOut = "yuv420p10le"
 	}
 
-	crf, err := chooseRecommendedCRF(input)
+	crf, err := getCRF(input)
 	if err != nil {
 		return rec, err
 	}
@@ -45,18 +49,16 @@ func getRecommendedParams(input string) (recommendedParams, error) {
 		"-crf", strconv.Itoa(crf),
 		"-svtav1-params", svtParams,
 	}
+	rec.VideoPreset, err = getPreset(input)
+	if err != nil {
+		return rec, err
+	}
 	if pixOut != "" {
 		rec.VideoArgs = append(rec.VideoArgs, "-pix_fmt", pixOut)
 	}
 	rec.HasVideoPrefs = true
 
-	audioBitRateRaw, err := ffprobeOutput(
-		"-v", "error",
-		"-select_streams", "a:0",
-		"-show_entries", "stream=bit_rate",
-		"-of", "csv=p=0",
-		input,
-	)
+	audioBitRateRaw, err := ffprobeOutput(input, ffprobeAudioBitrate)
 	if err != nil {
 		return rec, err
 	}
@@ -74,13 +76,8 @@ func getRecommendedParams(input string) (recommendedParams, error) {
 	return rec, nil
 }
 
-func chooseRecommendedCRF(input string) (int, error) {
-	durationRaw, err := ffprobeOutput(
-		"-v", "error",
-		"-show_entries", "format=duration",
-		"-of", "csv=p=0",
-		input,
-	)
+func getCRF(input string) (int, error) {
+	durationRaw, err := ffprobeOutput(input, ffprobeDuration)
 	if err != nil {
 		return 0, err
 	}
@@ -98,13 +95,7 @@ func chooseRecommendedCRF(input string) (int, error) {
 		}
 	}
 
-	widthRaw, err := ffprobeOutput(
-		"-v", "error",
-		"-select_streams", "v:0",
-		"-show_entries", "stream=width",
-		"-of", "csv=p=0",
-		input,
-	)
+	widthRaw, err := ffprobeOutput(input, ffprobeVideoWidth)
 	if err != nil {
 		return 0, err
 	}
@@ -116,7 +107,7 @@ func chooseRecommendedCRF(input string) (int, error) {
 
 	switch {
 	case width >= 3840:
-		return 27, nil
+		return 26, nil
 	case width >= 1920:
 		return 32, nil
 	case width >= 720:
@@ -126,10 +117,26 @@ func chooseRecommendedCRF(input string) (int, error) {
 	}
 }
 
+func getPreset(input string) (string, error) {
+	widthRaw, err := ffprobeOutput(input, ffprobeVideoWidth)
+	if err != nil {
+		return "", err
+	}
+
+	width, err := strconv.Atoi(strings.TrimSpace(widthRaw))
+	if err != nil {
+		return "3", nil
+	}
+	if width >= 3840 {
+		return "2", nil
+	}
+	return "3", nil
+}
+
 func rateToCRF(rate int64) int {
 	switch {
 	case rate >= 3_500_000:
-		return 27
+		return 26
 	case rate >= 1_800_000:
 		return 32
 	case rate >= 900_000:
@@ -139,7 +146,26 @@ func rateToCRF(rate int64) int {
 	}
 }
 
-func ffprobeOutput(args ...string) (string, error) {
+func ffprobeOutput(input string, field ffprobeField) (string, error) {
+	args := []string{
+		"-v", "error",
+		"-of", "csv=p=0",
+	}
+
+	switch field {
+	case ffprobeVideoPixelFormat:
+		args = append(args, "-select_streams", "v:0", "-show_entries", "stream=pix_fmt")
+	case ffprobeAudioBitrate:
+		args = append(args, "-select_streams", "a:0", "-show_entries", "stream=bit_rate")
+	case ffprobeDuration:
+		args = append(args, "-show_entries", "format=duration")
+	case ffprobeVideoWidth:
+		args = append(args, "-select_streams", "v:0", "-show_entries", "stream=width")
+	default:
+		return "", fmt.Errorf("unsupported ffprobe field: %d", field)
+	}
+
+	args = append(args, input)
 	cmd := exec.Command("ffprobe", args...)
 	out, err := cmd.Output()
 	if err != nil {
