@@ -1,12 +1,14 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 )
 
 func run(cfg config) error {
@@ -28,11 +30,46 @@ func run(cfg config) error {
 		return err
 	}
 
-	cmd := exec.Command("ffmpeg", args...)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	return runFFmpegWithRetry(args, cfg.OutputPath)
+}
+
+func runFFmpegWithRetry(args []string, outputPath string) error {
+	const maxAttempts = 3
+
+	_, outputStatErr := os.Stat(outputPath)
+	outputExistedBeforeRun := outputStatErr == nil
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		cmd := exec.Command("ffmpeg", args...)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err := cmd.Run()
+		if err == nil {
+			return nil
+		}
+		if !isKilledProcessError(err) || attempt == maxAttempts {
+			return err
+		}
+
+		if !outputExistedBeforeRun {
+			if removeErr := os.Remove(outputPath); removeErr != nil && !os.IsNotExist(removeErr) {
+				return fmt.Errorf("ffmpeg failed and partial output cleanup failed: %w", removeErr)
+			}
+		}
+		fmt.Fprintf(os.Stderr, "ffmpeg was killed; retrying (%d/%d)\n", attempt+1, maxAttempts)
+	}
+
+	return nil
+}
+
+func isKilledProcessError(err error) bool {
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) {
+		return false
+	}
+	status, ok := exitErr.ProcessState.Sys().(syscall.WaitStatus)
+	return ok && status.Signaled() && status.Signal() == syscall.SIGKILL
 }
 
 func buildFFmpegArgs(cfg config, rec recommendedParams) ([]string, error) {
