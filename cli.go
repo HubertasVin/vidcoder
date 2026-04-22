@@ -25,6 +25,8 @@ type config struct {
 	UseRecommendedVideo bool
 	UseRecommendedAudio bool
 
+	ShowVersion bool
+
 	VideoCodec string
 	AudioCodec string
 
@@ -67,6 +69,13 @@ func parseArgs(args []string) (config, error) {
 
 	cfg.videoCodecSet = fs.Changed("video-codec")
 	cfg.audioCodecSet = fs.Changed("audio-codec")
+
+	if cfg.ShowVersion {
+		if len(fs.Args()) > 0 {
+			return cfg, errors.New("--version does not accept positional arguments")
+		}
+		return cfg, nil
+	}
 
 	for _, positional := range fs.Args() {
 		if err := setPositional(&cfg, positional); err != nil {
@@ -129,6 +138,7 @@ func newFlagSet(cfg *config, output io.Writer) (*pflag.FlagSet, *bool) {
 
 	helpRequested := false
 	fs.BoolVarP(&helpRequested, "help", "h", false, "show help")
+	fs.BoolVarP(&cfg.ShowVersion, "version", "v", false, "show version")
 	fs.StringVarP(&cfg.InputPath, "input", "i", "", "input file path")
 	fs.StringVarP(&cfg.OutputPath, "output", "o", "", "output file path")
 	fs.BoolVar(&cfg.UseRecommendedAll, "recommended", false, "recommended settings")

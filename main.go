@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime/debug"
 )
 
 func main() {
@@ -15,6 +16,16 @@ func main() {
 		}
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
+	}
+
+	if cfg.ShowVersion {
+		info, ok := debug.ReadBuildInfo()
+		if ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+			fmt.Fprintln(os.Stdout, info.Main.Version)
+		} else {
+			fmt.Fprintln(os.Stdout, "dev")
+		}
+		return
 	}
 
 	if err := run(cfg); err != nil {
