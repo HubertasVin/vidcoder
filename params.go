@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"math"
 	"os"
 	"os/exec"
 	"strconv"
@@ -23,6 +22,7 @@ const (
 	ffprobeAudioBitrate
 	ffprobeDuration
 	ffprobeVideoWidth
+	ffprobeVideoBitrate
 )
 
 func getRecommendedParams(input string) (recommendedParams, error) {
@@ -82,7 +82,7 @@ func getPixFmt(input string) (string, error) {
 		return "yuv420p10le", nil
 	}
 	return "", nil
-}	
+}
 
 func getSVTAV1Params(input string) (string, error) {
 	pixFmt, err := ffprobeOutput(input, ffprobeVideoPixelFormat)
@@ -100,27 +100,93 @@ func getSVTAV1Params(input string) (string, error) {
 
 func is10Bit(pixFmt string) bool {
 	return strings.Contains(pixFmt, "10le") || strings.Contains(pixFmt, "10be")
-}	
+}
 
 func getCRF(input string) (int, error) {
+	width, err := getWidth(input)
+	if err != nil {
+		return 0, err
+	}
+
+	rate, err := getVideoRate(input)
+	if err != nil {
+		return 0, err
+	}
+
+	return resAndRateToCRF(width, rate), nil
+}
+
+func getVideoRate(input string) (int, error) {
+
+	if videoRate, err := getFfprobeVideoRate(input); err == nil {
+		if videoRate > 0 {
+			return videoRate, nil
+		}
+	} else {
+		return 0, err
+	}
+
+	duration, err := getDuration(input)
+	if err != nil {
+		return 0, err
+	}
+
+	info, err := os.Stat(input)
+	if err != nil {
+		return 0, err
+	}
+	totalRate := int((float64(info.Size()) * 8.0) / duration)
+
+	audioRate, err := getAudioRate(input)
+	if err != nil {
+		return 0, err
+	}
+
+	videoRate := totalRate - audioRate
+	if videoRate < 0 {
+		return 0, nil
+	}
+
+	return videoRate, nil
+}
+
+func getAudioRate(input string) (int, error) {
+	audioBitRateRaw, err := ffprobeOutput(input, ffprobeAudioBitrate)
+	if err != nil {
+		return 0, err
+	}
+
+	audioBitRateRaw = strings.TrimSpace(audioBitRateRaw)
+	if audioBitRateRaw != "" && audioBitRateRaw != "N/A" {
+		audioBitRate, err := strconv.Atoi(audioBitRateRaw)
+		if err == nil && audioBitRate >= 0 {
+			return audioBitRate, nil
+		}
+	}
+
+	return 0, nil
+}
+
+func getDuration(input string) (float64, error) {
 	durationRaw, err := ffprobeOutput(input, ffprobeDuration)
 	if err != nil {
 		return 0, err
 	}
 
 	durationRaw = strings.TrimSpace(durationRaw)
-	if durationRaw != "" && durationRaw != "N/A" {
-		duration, err := strconv.ParseFloat(durationRaw, 64)
-		if err == nil && duration > 0 {
-			info, err := os.Stat(input)
-			if err != nil {
-				return 0, err
-			}
-			rate := int64(math.Round((float64(info.Size()) * 8.0) / duration))
-			return rateToCRF(rate), nil
-		}
+	if durationRaw == "" || durationRaw == "N/A" {
+		return 0, nil
 	}
 
+	duration, err := strconv.ParseFloat(durationRaw, 64)
+	if err != nil || duration <= 0 {
+		return 0, nil
+	}
+
+	return duration, nil
+}
+
+func getWidth(input string) (int, error) {
 	widthRaw, err := ffprobeOutput(input, ffprobeVideoWidth)
 	if err != nil {
 		return 0, err
@@ -128,19 +194,9 @@ func getCRF(input string) (int, error) {
 
 	width, err := strconv.Atoi(strings.TrimSpace(widthRaw))
 	if err != nil {
-		return 36, nil
+		return 0, nil
 	}
-
-	switch {
-	case width >= 3840:
-		return 26, nil
-	case width >= 1920:
-		return 32, nil
-	case width >= 720:
-		return 34, nil
-	default:
-		return 36, nil
-	}
+	return width, nil
 }
 
 func getPreset(input string) (string, error) {
@@ -159,17 +215,46 @@ func getPreset(input string) (string, error) {
 	return "3", nil
 }
 
-func rateToCRF(rate int64) int {
+func resAndRateToCRF(res, rate int) int {
 	switch {
-	case rate >= 3_500_000:
-		return 26
-	case rate >= 1_800_000:
-		return 32
-	case rate >= 900_000:
-		return 34
+	case res >= 3840:
+		if rate >= 6_000_000 {
+			return 26
+		} else {
+			return 27
+		}
+	case res >= 1920:
+		if rate >= 2_000_000 {
+			return 32
+		} else {
+			return 34
+		}
+	case res >= 720:
+		if rate >= 1_000_000 {
+			return 34
+		} else {
+			return 36
+		}
 	default:
 		return 36
 	}
+}
+
+func getFfprobeVideoRate(input string) (int, error) {
+	videoBitrateRaw, err := ffprobeOutput(input, ffprobeVideoBitrate)
+	if err != nil {
+		return 0, err
+	}
+
+	videoBitrateRaw = strings.TrimSpace(videoBitrateRaw)
+	if videoBitrateRaw != "" && videoBitrateRaw != "N/A" {
+		videoBitrate, err := strconv.Atoi(videoBitrateRaw)
+		if err == nil && videoBitrate > 0 {
+			return videoBitrate, nil
+		}
+	}
+
+	return 0, nil
 }
 
 func ffprobeOutput(input string, field ffprobeField) (string, error) {
@@ -187,6 +272,8 @@ func ffprobeOutput(input string, field ffprobeField) (string, error) {
 		args = append(args, "-show_entries", "format=duration")
 	case ffprobeVideoWidth:
 		args = append(args, "-select_streams", "v:0", "-show_entries", "stream=width")
+	case ffprobeVideoBitrate:
+		args = append(args, "-select_streams", "v:0", "-show_entries", "stream=bit_rate")
 	default:
 		return "", fmt.Errorf("unsupported ffprobe field: %d", field)
 	}
