@@ -147,10 +147,10 @@ func getTotalBitrate(input string) (int, error) {
 func resAndRateToCRF(res, rate int) int {
 	switch {
 	case res >= 3840:
-		if rate >= 6_000_000 {
-			return 26
+		if rate >= 5_000_000 {
+			return 25
 		} else {
-			return 28
+			return 27
 		}
 	case res >= 1920:
 		if rate >= 2_000_000 {
