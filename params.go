@@ -212,13 +212,13 @@ func resAndRateToCRF(res, rate int) int {
 		if rate >= 6_000_000 {
 			return 26
 		} else {
-			return 27
+			return 28
 		}
 	case res >= 1920:
 		if rate >= 2_000_000 {
 			return 32
 		} else {
-			return 34
+			return 35
 		}
 	case res >= 720:
 		if rate >= 1_000_000 {
