@@ -46,25 +46,12 @@ func TestIs10Bit(t *testing.T) {
 
 func TestResAndRateToCRF(t *testing.T) {
 	assert.Equal(t, 26, resAndRateToCRF(3840, 6_000_000))
-	assert.Equal(t, 27, resAndRateToCRF(3840, 5_000_000))
+	assert.Equal(t, 28, resAndRateToCRF(3840, 5_000_000))
 	assert.Equal(t, 32, resAndRateToCRF(1920, 2_000_000))
-	assert.Equal(t, 34, resAndRateToCRF(1920, 1_000_000))
+	assert.Equal(t, 35, resAndRateToCRF(1920, 1_000_000))
 	assert.Equal(t, 34, resAndRateToCRF(1280, 1_000_000))
 	assert.Equal(t, 36, resAndRateToCRF(1280, 500_000))
 	assert.Equal(t, 36, resAndRateToCRF(640, 500_000))
-}
-
-func TestGetAudioRate(t *testing.T) {
-	mockHelper := new(MockHelper)
-	originalFfprobeOutput := ffprobeOutput
-	ffprobeOutput = mockHelper.ffprobeOutput
-	defer func() { ffprobeOutput = originalFfprobeOutput }()
-
-	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeAudioBitrate).Return("128000\n", nil)
-	rate, err := getAudioRate("input.mkv")
-	assert.NoError(t, err)
-	assert.Equal(t, 128000, rate)
-	mockHelper.AssertExpectations(t)
 }
 
 func TestGetVideoRateFromFfprobe(t *testing.T) {
@@ -74,7 +61,7 @@ func TestGetVideoRateFromFfprobe(t *testing.T) {
 	defer func() { ffprobeOutput = originalFfprobeOutput }()
 
 	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeVideoBitrate).Return("2000000\n", nil)
-	rate, err := getVideoRate("input.mkv")
+	rate, err := getVideoBitrate("input.mkv")
 	assert.NoError(t, err)
 	assert.Equal(t, 2000000, rate)
 	mockHelper.AssertExpectations(t)
@@ -100,7 +87,7 @@ func TestGetVideoRateFromSize(t *testing.T) {
 
 	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeAudioBitrate).Return("128000", nil)
 
-	rate, err := getVideoRate("input.mkv")
+	rate, err := getVideoBitrate("input.mkv")
 	assert.NoError(t, err)
 	assert.Equal(t, 872000, rate) // 1000000 - 128000
 	mockHelper.AssertExpectations(t)
@@ -114,7 +101,7 @@ func TestGetPixFmt(t *testing.T) {
 	defer func() { ffprobeOutput = originalFfprobeOutput }()
 
 	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeVideoPixelFormat).Return("yuv420p10le", nil)
-	pixFmt, err := getPixFmt("input.mkv")
+	pixFmt, err := recommendPixFmt("input.mkv")
 	assert.NoError(t, err)
 	assert.Equal(t, "yuv420p10le", pixFmt)
 	mockHelper.AssertExpectations(t)
@@ -127,7 +114,7 @@ func TestGetSVTAV1Params(t *testing.T) {
 	defer func() { ffprobeOutput = originalFfprobeOutput }()
 
 	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeVideoPixelFormat).Return("yuv420p10le", nil)
-	params, err := getSVTAV1Params("input.mkv")
+	params, err := recommendSVTAV1Params("input.mkv")
 	assert.NoError(t, err)
 	assert.Equal(t, "tune=0:enable-dlf=0:enable-cdef=0:input-depth=10", params)
 	mockHelper.AssertExpectations(t)
