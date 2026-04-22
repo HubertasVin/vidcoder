@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+var osStat = os.Stat
+
 type recommendedParams struct {
 	VideoArgs     []string
 	VideoPreset   string
@@ -120,7 +122,7 @@ func getVideoRate(input string) (int, error) {
 		return 0, err
 	}
 
-	info, err := os.Stat(input)
+	info, err := osStat(input)
 	if err != nil {
 		return 0, err
 	}

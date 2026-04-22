@@ -16,7 +16,7 @@ const (
 	ffprobeVideoBitrate
 )
 
-func ffprobeOutput(input string, field ffprobeField) (string, error) {
+var ffprobeOutput = func(input string, field ffprobeField) (string, error) {
 	args := []string{
 		"-v", "error",
 		"-of", "csv=p=0",
