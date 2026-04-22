@@ -129,13 +129,11 @@ func TestGetRecommendedParams(t *testing.T) {
 	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeVideoWidth).Return("1920", nil).Times(2)
 	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeVideoBitrate).Return("2000000", nil)
 	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeVideoPixelFormat).Return("yuv420p10le", nil).Times(2)
-	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeAudioBitrate).Return("256000", nil)
 
 	rec, err := getRecommendedParams("input.mkv")
 	assert.NoError(t, err)
 	assert.True(t, rec.HasVideoPrefs)
 	assert.Equal(t, "3", rec.VideoPreset)
-	assert.Equal(t, "128k", rec.AudioBitrate)
 	assert.Equal(t, []string{"-crf", "32", "-svtav1-params", "tune=0:enable-dlf=0:enable-cdef=0:input-depth=10", "-pix_fmt", "yuv420p10le"}, rec.VideoArgs)
 	mockHelper.AssertExpectations(t)
 }

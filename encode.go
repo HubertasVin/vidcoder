@@ -106,9 +106,6 @@ func buildFFmpegArgs(cfg config, rec recommendedParams) ([]string, error) {
 	if cfg.AudioCodec != "" {
 		args = append(args, "-c:a", cfg.AudioCodec)
 	}
-	if cfg.UseRecommendedAudio && cfg.AudioBitrate == "" && rec.AudioBitrate != "" {
-		args = append(args, "-b:a", rec.AudioBitrate)
-	}
 	if cfg.AudioBitrate != "" {
 		args = append(args, "-b:a", cfg.AudioBitrate)
 	}

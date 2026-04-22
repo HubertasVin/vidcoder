@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -12,7 +11,6 @@ var osStat = os.Stat
 type recommendedParams struct {
 	VideoArgs     []string
 	VideoPreset   string
-	AudioBitrate  string
 	HasVideoPrefs bool
 }
 
@@ -44,21 +42,6 @@ func getRecommendedParams(input string) (recommendedParams, error) {
 		rec.VideoArgs = append(rec.VideoArgs, "-pix_fmt", pixFmt)
 	}
 	rec.HasVideoPrefs = true
-
-	audioBitRateRaw, err := ffprobeOutput(input, ffprobeAudioBitrate)
-	if err != nil {
-		return rec, err
-	}
-
-	audioBitRate, err := strconv.ParseInt(strings.TrimSpace(audioBitRateRaw), 10, 64)
-	if err == nil {
-		switch {
-		case audioBitRate < 128000:
-			rec.AudioBitrate = fmt.Sprintf("%dk", audioBitRate/1000)
-		case audioBitRate >= 128000:
-			rec.AudioBitrate = "128k"
-		}
-	}
 
 	return rec, nil
 }
