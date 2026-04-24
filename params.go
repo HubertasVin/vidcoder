@@ -148,9 +148,9 @@ func resAndRateToCRF(res, rate int) int {
 	switch {
 	case res >= 3840:
 		if rate >= 5_000_000 {
-			return 25
+			return 30
 		} else {
-			return 27
+			return 32
 		}
 	case res >= 1920:
 		if rate >= 2_000_000 {
