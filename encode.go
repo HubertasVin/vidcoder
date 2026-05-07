@@ -112,6 +112,7 @@ func buildFFmpegArgs(cfg config, rec recommendedParams) ([]string, error) {
 	if cfg.AudioBitrate != "" {
 		args = append(args, "-b:a", cfg.AudioBitrate)
 	}
+	args = append(args, "-af", "aformat=channel_layouts=5.1|7.1|stereo|mono")
 	if cfg.UseRecommendedAudio && cfg.AudioCodec == "libopus" {
 		args = append(args, "-application", "audio")
 	}
