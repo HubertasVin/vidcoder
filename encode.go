@@ -77,6 +77,9 @@ func buildFFmpegArgs(cfg config, rec recommendedParams) ([]string, error) {
 		"-threads", "0",
 		"-n",
 		"-i", cfg.InputPath,
+		"-map", "0:v?",
+		"-map", "0:a?",
+		"-map", "0:s?",
 	}
 
 	filters, err := buildVideoFilters(cfg)
