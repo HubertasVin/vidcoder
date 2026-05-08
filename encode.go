@@ -106,6 +106,8 @@ func buildFFmpegArgs(cfg config, rec recommendedParams) ([]string, error) {
 		args = append(args, "-preset", cfg.VideoPreset)
 	}
 
+	args = append(args, "-c:s", "copy")
+
 	if cfg.AudioCodec != "" {
 		args = append(args, "-c:a", cfg.AudioCodec)
 	}
