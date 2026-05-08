@@ -17,12 +17,7 @@ type recommendedParams struct {
 func getRecommendedParams(input string, compressedSource bool) (recommendedParams, error) {
 	var rec recommendedParams
 
-	videoRate, err := getVideoBitrate(input)
-	if err != nil {
-		return rec, err
-	}
-
-	crf, err := recommendCRFWithRate(input, videoRate)
+	crf, err := recommendCRF(input)
 	if err != nil {
 		return rec, err
 	}
@@ -36,13 +31,6 @@ func getRecommendedParams(input string, compressedSource bool) (recommendedParam
 	rec.VideoArgs = []string{
 		"-crf", strconv.Itoa(crf),
 		"-svtav1-params", svtParams,
-	}
-
-	if compressedSource && videoRate > 0 {
-		ceiling := int(float64(videoRate) * 0.85)
-		ceilingStr := strconv.Itoa(ceiling)
-		rec.VideoArgs = append(rec.VideoArgs, "-maxrate:v", ceilingStr)
-		rec.VideoArgs = append(rec.VideoArgs, "-bufsize:v", strconv.Itoa(ceiling*2))
 	}
 
 	rec.VideoPreset, err = recommendPreset(input, compressedSource)
@@ -95,22 +83,13 @@ func recommendSVTAV1Params(input string, compressedSource bool) (string, error) 
 	return svtParams, nil
 }
 
-// func recommendCRF(input string) (int, error) {
-// 	width, err := getWidth(input)
-// 	if err != nil {
-// 		return 0, err
-// 	}
-
-// 	rate, err := getVideoBitrate(input)
-// 	if err != nil {
-// 		return 0, err
-// 	}
-
-// 	return resAndRateToCRF(width, rate), nil
-// }
-
-func recommendCRFWithRate(input string, rate int) (int, error) {
+func recommendCRF(input string) (int, error) {
 	width, err := getWidth(input)
+	if err != nil {
+		return 0, err
+	}
+
+	rate, err := getVideoBitrate(input)
 	if err != nil {
 		return 0, err
 	}

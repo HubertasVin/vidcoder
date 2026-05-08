@@ -168,8 +168,6 @@ func TestGetRecommendedParamsCompressed(t *testing.T) {
 	assert.Equal(t, []string{
 		"-crf", "35",
 		"-svtav1-params", "tune=2:enable-variance-boost=1:input-depth=10",
-		"-maxrate:v", "1700000",
-		"-bufsize:v", "3400000",
 		"-pix_fmt", "yuv420p10le",
 	}, rec.VideoArgs)
 	mockHelper.AssertExpectations(t)
