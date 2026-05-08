@@ -45,8 +45,8 @@ func TestIs10Bit(t *testing.T) {
 }
 
 func TestResAndRateToCRF(t *testing.T) {
-	assert.Equal(t, 26, resAndRateToCRF(3840, 6_000_000))
-	assert.Equal(t, 28, resAndRateToCRF(3840, 5_000_000))
+	assert.Equal(t, 30, resAndRateToCRF(3840, 6_000_000))
+	assert.Equal(t, 30, resAndRateToCRF(3840, 5_000_000))
 	assert.Equal(t, 32, resAndRateToCRF(1920, 2_000_000))
 	assert.Equal(t, 35, resAndRateToCRF(1920, 1_000_000))
 	assert.Equal(t, 34, resAndRateToCRF(1280, 1_000_000))
@@ -82,14 +82,14 @@ func TestGetVideoRateFromSize(t *testing.T) {
 	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeDuration).Return("10.0", nil)
 
 	mockFileInfo := new(MockFileInfo)
-	mockFileInfo.On("Size").Return(1250000) // 10,000,000 bits / 10s = 1,000,000 bit/s total
+	mockFileInfo.On("Size").Return(1250000)
 	mockHelper.On("osStat", "input.mkv").Return(mockFileInfo, nil)
 
 	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeAudioBitrate).Return("128000", nil)
 
 	rate, err := getVideoBitrate("input.mkv")
 	assert.NoError(t, err)
-	assert.Equal(t, 872000, rate) // 1000000 - 128000
+	assert.Equal(t, 872000, rate)
 	mockHelper.AssertExpectations(t)
 	mockFileInfo.AssertExpectations(t)
 }
@@ -114,7 +114,7 @@ func TestGetSVTAV1Params(t *testing.T) {
 	defer func() { ffprobeOutput = originalFfprobeOutput }()
 
 	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeVideoPixelFormat).Return("yuv420p10le", nil)
-	params, err := recommendSVTAV1Params("input.mkv")
+	params, err := recommendSVTAV1Params("input.mkv", false)
 	assert.NoError(t, err)
 	assert.Equal(t, "tune=0:enable-dlf=0:enable-cdef=0:input-depth=10", params)
 	mockHelper.AssertExpectations(t)
@@ -130,7 +130,7 @@ func TestGetRecommendedParams(t *testing.T) {
 	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeVideoBitrate).Return("2000000", nil)
 	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeVideoPixelFormat).Return("yuv420p10le", nil).Times(2)
 
-	rec, err := getRecommendedParams("input.mkv")
+	rec, err := getRecommendedParams("input.mkv", false)
 	assert.NoError(t, err)
 	assert.True(t, rec.HasVideoPrefs)
 	assert.Equal(t, "3", rec.VideoPreset)

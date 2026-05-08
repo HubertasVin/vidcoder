@@ -14,14 +14,17 @@ type recommendedParams struct {
 	HasVideoPrefs bool
 }
 
-func getRecommendedParams(input string) (recommendedParams, error) {
+func getRecommendedParams(input string, compressedSource bool) (recommendedParams, error) {
 	var rec recommendedParams
 
 	crf, err := recommendCRF(input)
 	if err != nil {
 		return rec, err
 	}
-	svtParams, err := recommendSVTAV1Params(input)
+	if compressedSource {
+		crf += 2
+	}
+	svtParams, err := recommendSVTAV1Params(input, compressedSource)
 	if err != nil {
 		return rec, err
 	}
@@ -58,13 +61,20 @@ func recommendPixFmt(input string) (string, error) {
 	return "", nil
 }
 
-func recommendSVTAV1Params(input string) (string, error) {
+func recommendSVTAV1Params(input string, compressedSource bool) (string, error) {
 	pixFmt, err := ffprobeOutput(input, ffprobeVideoPixelFormat)
 	if err != nil {
 		return "", err
 	}
 
-	svtParams := "tune=0:enable-dlf=0:enable-cdef=0"
+	tune := "tune=0"
+	if compressedSource {
+		tune = "tune=2"
+	}
+	svtParams := tune + ":enable-dlf=0:enable-cdef=0"
+	if compressedSource {
+		svtParams += ":enable-variance-boost=2"
+	}
 	if is10Bit(pixFmt) {
 		svtParams += ":input-depth=10"
 	}

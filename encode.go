@@ -15,7 +15,7 @@ func run(cfg config) error {
 	var rec recommendedParams
 	var err error
 	if cfg.UseRecommendedVideo || cfg.UseRecommendedAudio {
-		rec, err = getRecommendedParams(cfg.InputPath)
+		rec, err = getRecommendedParams(cfg.InputPath, cfg.CompressedSource)
 		if err != nil {
 			return err
 		}
@@ -112,7 +112,14 @@ func buildFFmpegArgs(cfg config, rec recommendedParams) ([]string, error) {
 		args = append(args, "-c:a", cfg.AudioCodec)
 	}
 	if cfg.AudioBitrate != "" {
-		args = append(args, "-b:a", cfg.AudioBitrate)
+		originalRate, probeErr := getAudioBitrate(cfg.InputPath)
+		targetBitrate, convErr := strconv.Atoi(cfg.AudioBitrate)
+		if convErr != nil {
+			fmt.Println(convErr)
+		}
+		if probeErr == nil && originalRate > 0 && originalRate >= targetBitrate {
+			args = append(args, "-b:a", cfg.AudioBitrate)
+		}
 	}
 	args = append(args, "-af", "aformat=channel_layouts=5.1|7.1|stereo|mono")
 	if cfg.UseRecommendedAudio && cfg.AudioCodec == "libopus" {
@@ -128,7 +135,7 @@ func buildFFmpegArgs(cfg config, rec recommendedParams) ([]string, error) {
 }
 
 func buildVideoFilters(cfg config) ([]string, error) {
-	filters := make([]string, 0, 2)
+	filters := make([]string, 0, 3)
 
 	if cfg.Resolution != "" {
 		parts := strings.Split(cfg.Resolution, "x")
@@ -143,6 +150,10 @@ func buildVideoFilters(cfg config) ([]string, error) {
 		scaleText := strconv.FormatFloat(scale, 'f', -1, 64)
 		filters = append(filters,
 			fmt.Sprintf("scale=trunc(iw*%s/2)*2:trunc(ih*%s/2)*2", scaleText, scaleText))
+	}
+
+	if cfg.Denoise {
+		filters = append(filters, "hqdn3d=1.5:1.5:6:6")
 	}
 
 	return filters, nil

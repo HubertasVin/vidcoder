@@ -39,6 +39,9 @@ type config struct {
 
 	ExtraFFmpeg string
 
+	CompressedSource bool
+	Denoise          bool
+
 	videoCodecSet bool
 	audioCodecSet bool
 }
@@ -152,6 +155,8 @@ func newFlagSet(cfg *config, output io.Writer) (*pflag.FlagSet, *bool) {
 	fs.StringVar(&cfg.Resolution, "resolution", "", "output resolution (WxH)")
 	fs.StringVarP(&cfg.ScaleValue, "scale", "s", "", "scale factor (*2, /2, x1.5, 1.5)")
 	fs.StringVarP(&cfg.ExtraFFmpeg, "ffmpeg", "f", "", "additional ffmpeg arguments")
+	fs.BoolVar(&cfg.CompressedSource, "compressed-source", false, "source is already compressed; increase CRF and tune for compression artifacts")
+	fs.BoolVar(&cfg.Denoise, "denoise", false, "apply hqdn3d denoise filter")
 
 	return fs, &helpRequested
 }
