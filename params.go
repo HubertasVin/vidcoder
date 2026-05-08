@@ -22,7 +22,7 @@ func getRecommendedParams(input string, compressedSource bool) (recommendedParam
 		return rec, err
 	}
 	if compressedSource {
-		crf += 3
+		crf += 1
 	}
 	svtParams, err := recommendSVTAV1Params(input, compressedSource)
 	if err != nil {
@@ -33,7 +33,7 @@ func getRecommendedParams(input string, compressedSource bool) (recommendedParam
 		"-svtav1-params", svtParams,
 	}
 
-	rec.VideoPreset, err = recommendPreset(input, compressedSource)
+	rec.VideoPreset, err = recommendPreset(input)
 	if err != nil {
 		return rec, err
 	}
@@ -97,14 +97,10 @@ func recommendCRF(input string) (int, error) {
 	return resAndRateToCRF(width, rate), nil
 }
 
-func recommendPreset(input string, isCompressed bool) (string, error) {
+func recommendPreset(input string) (string, error) {
 	widthRaw, err := ffprobeOutput(input, ffprobeVideoWidth)
 	if err != nil {
 		return "", err
-	}
-
-	if isCompressed {
-		return "5", nil
 	}
 
 	width, err := strconv.Atoi(strings.TrimSpace(widthRaw))
