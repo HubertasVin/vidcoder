@@ -40,7 +40,9 @@ func getRecommendedParams(input string, compressedSource bool) (recommendedParam
 
 	if compressedSource && videoRate > 0 {
 		ceiling := int(float64(videoRate) * 0.85)
-		rec.VideoArgs = append(rec.VideoArgs, "-b:v", strconv.Itoa(ceiling))
+		ceilingStr := strconv.Itoa(ceiling)
+		rec.VideoArgs = append(rec.VideoArgs, "-maxrate:v", ceilingStr)
+		rec.VideoArgs = append(rec.VideoArgs, "-bufsize:v", strconv.Itoa(ceiling*2))
 	}
 
 	rec.VideoPreset, err = recommendPreset(input, compressedSource)
@@ -78,7 +80,7 @@ func recommendSVTAV1Params(input string, compressedSource bool) (string, error) 
 	}
 
 	if compressedSource {
-		svtParams := "tune=2:enable-variance-boost=2"
+		svtParams := "tune=2:enable-variance-boost=1"
 		if is10Bit(pixFmt) {
 			svtParams += ":input-depth=10"
 		}
