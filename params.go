@@ -17,12 +17,17 @@ type recommendedParams struct {
 func getRecommendedParams(input string, compressedSource bool) (recommendedParams, error) {
 	var rec recommendedParams
 
-	crf, err := recommendCRF(input)
+	videoRate, err := getVideoBitrate(input)
+	if err != nil {
+		return rec, err
+	}
+
+	crf, err := recommendCRFWithRate(input, videoRate)
 	if err != nil {
 		return rec, err
 	}
 	if compressedSource {
-		crf += 2
+		crf += 3
 	}
 	svtParams, err := recommendSVTAV1Params(input, compressedSource)
 	if err != nil {
@@ -33,7 +38,12 @@ func getRecommendedParams(input string, compressedSource bool) (recommendedParam
 		"-svtav1-params", svtParams,
 	}
 
-	rec.VideoPreset, err = recommendPreset(input)
+	if compressedSource && videoRate > 0 {
+		ceiling := int(float64(videoRate) * 0.85)
+		rec.VideoArgs = append(rec.VideoArgs, "-b:v", strconv.Itoa(ceiling))
+	}
+
+	rec.VideoPreset, err = recommendPreset(input, compressedSource)
 	if err != nil {
 		return rec, err
 	}
@@ -67,14 +77,15 @@ func recommendSVTAV1Params(input string, compressedSource bool) (string, error) 
 		return "", err
 	}
 
-	tune := "tune=0"
 	if compressedSource {
-		tune = "tune=2"
+		svtParams := "tune=2:enable-variance-boost=2"
+		if is10Bit(pixFmt) {
+			svtParams += ":input-depth=10"
+		}
+		return svtParams, nil
 	}
-	svtParams := tune + ":enable-dlf=0:enable-cdef=0"
-	if compressedSource {
-		svtParams += ":enable-variance-boost=2"
-	}
+
+	svtParams := "tune=0:enable-dlf=0:enable-cdef=0"
 	if is10Bit(pixFmt) {
 		svtParams += ":input-depth=10"
 	}
@@ -82,13 +93,22 @@ func recommendSVTAV1Params(input string, compressedSource bool) (string, error) 
 	return svtParams, nil
 }
 
-func recommendCRF(input string) (int, error) {
-	width, err := getWidth(input)
-	if err != nil {
-		return 0, err
-	}
+// func recommendCRF(input string) (int, error) {
+// 	width, err := getWidth(input)
+// 	if err != nil {
+// 		return 0, err
+// 	}
 
-	rate, err := getVideoBitrate(input)
+// 	rate, err := getVideoBitrate(input)
+// 	if err != nil {
+// 		return 0, err
+// 	}
+
+// 	return resAndRateToCRF(width, rate), nil
+// }
+
+func recommendCRFWithRate(input string, rate int) (int, error) {
+	width, err := getWidth(input)
 	if err != nil {
 		return 0, err
 	}
@@ -96,10 +116,14 @@ func recommendCRF(input string) (int, error) {
 	return resAndRateToCRF(width, rate), nil
 }
 
-func recommendPreset(input string) (string, error) {
+func recommendPreset(input string, isCompressed bool) (string, error) {
 	widthRaw, err := ffprobeOutput(input, ffprobeVideoWidth)
 	if err != nil {
 		return "", err
+	}
+
+	if isCompressed {
+		return "5", nil
 	}
 
 	width, err := strconv.Atoi(strings.TrimSpace(widthRaw))

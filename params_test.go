@@ -120,14 +120,27 @@ func TestGetSVTAV1Params(t *testing.T) {
 	mockHelper.AssertExpectations(t)
 }
 
+func TestGetSVTAV1ParamsCompressed(t *testing.T) {
+	mockHelper := new(MockHelper)
+	originalFfprobeOutput := ffprobeOutput
+	ffprobeOutput = mockHelper.ffprobeOutput
+	defer func() { ffprobeOutput = originalFfprobeOutput }()
+
+	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeVideoPixelFormat).Return("yuv420p10le", nil)
+	params, err := recommendSVTAV1Params("input.mkv", true)
+	assert.NoError(t, err)
+	assert.Equal(t, "tune=2:enable-variance-boost=2:input-depth=10", params)
+	mockHelper.AssertExpectations(t)
+}
+
 func TestGetRecommendedParams(t *testing.T) {
 	mockHelper := new(MockHelper)
 	originalFfprobeOutput := ffprobeOutput
 	ffprobeOutput = mockHelper.ffprobeOutput
 	defer func() { ffprobeOutput = originalFfprobeOutput }()
 
-	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeVideoWidth).Return("1920", nil).Times(2)
 	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeVideoBitrate).Return("2000000", nil)
+	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeVideoWidth).Return("1920", nil).Times(2)
 	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeVideoPixelFormat).Return("yuv420p10le", nil).Times(2)
 
 	rec, err := getRecommendedParams("input.mkv", false)
@@ -135,5 +148,28 @@ func TestGetRecommendedParams(t *testing.T) {
 	assert.True(t, rec.HasVideoPrefs)
 	assert.Equal(t, "3", rec.VideoPreset)
 	assert.Equal(t, []string{"-crf", "32", "-svtav1-params", "tune=0:enable-dlf=0:enable-cdef=0:input-depth=10", "-pix_fmt", "yuv420p10le"}, rec.VideoArgs)
+	mockHelper.AssertExpectations(t)
+}
+
+func TestGetRecommendedParamsCompressed(t *testing.T) {
+	mockHelper := new(MockHelper)
+	originalFfprobeOutput := ffprobeOutput
+	ffprobeOutput = mockHelper.ffprobeOutput
+	defer func() { ffprobeOutput = originalFfprobeOutput }()
+
+	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeVideoBitrate).Return("2000000", nil)
+	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeVideoWidth).Return("1920", nil)
+	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeVideoPixelFormat).Return("yuv420p10le", nil).Times(2)
+
+	rec, err := getRecommendedParams("input.mkv", true)
+	assert.NoError(t, err)
+	assert.True(t, rec.HasVideoPrefs)
+	assert.Equal(t, "5", rec.VideoPreset)
+	assert.Equal(t, []string{
+		"-crf", "35",
+		"-svtav1-params", "tune=2:enable-variance-boost=2:input-depth=10",
+		"-b:v", "1700000",
+		"-pix_fmt", "yuv420p10le",
+	}, rec.VideoArgs)
 	mockHelper.AssertExpectations(t)
 }

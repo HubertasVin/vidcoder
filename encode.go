@@ -153,7 +153,11 @@ func buildVideoFilters(cfg config) ([]string, error) {
 	}
 
 	if cfg.Denoise {
-		filters = append(filters, "hqdn3d=1.5:1.5:6:6")
+		if cfg.CompressedSource {
+			filters = append(filters, "hqdn3d=2:1.5:3:3")
+		} else {
+			filters = append(filters, "hqdn3d=1.5:1.5:6:6")
+		}
 	}
 
 	return filters, nil
