@@ -37,6 +37,53 @@ func (m *MockFileInfo) ModTime() time.Time { return time.Time{} }
 func (m *MockFileInfo) IsDir() bool        { return false }
 func (m *MockFileInfo) Sys() any           { return nil }
 
+func TestParseEncoder(t *testing.T) {
+	tests := []struct {
+		input    string
+		want     encoderType
+		wantErr  bool
+	}{
+		{"H264", encH264, false},
+		{"AV1", encAV1, false},
+		{"HEVC", encHEVC, false},
+		{"x264", "", true},
+		{"", "", true},
+	}
+	for _, tt := range tests {
+		enc, err := parseEncoder(tt.input)
+		if tt.wantErr {
+			assert.Error(t, err)
+		} else {
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, enc)
+		}
+	}
+}
+
+func TestEncoderCodec(t *testing.T) {
+	assert.Equal(t, "libx264", encH264.codec())
+	assert.Equal(t, "libsvtav1", encAV1.codec())
+	assert.Equal(t, "libx265", encHEVC.codec())
+}
+
+func TestEncoderMapCRF(t *testing.T) {
+	assert.Equal(t, 20, encH264.mapCRF(32))
+	assert.Equal(t, 32, encAV1.mapCRF(32))
+	assert.Equal(t, 22, encHEVC.mapCRF(32))
+}
+
+func TestEncoderMapPreset(t *testing.T) {
+	assert.Equal(t, "slower", encH264.mapPreset("2"))
+	assert.Equal(t, "slow", encH264.mapPreset("3"))
+	assert.Equal(t, "medium", encH264.mapPreset("5"))
+	assert.Equal(t, "slower", encHEVC.mapPreset("2"))
+	assert.Equal(t, "slow", encHEVC.mapPreset("3"))
+	assert.Equal(t, "medium", encHEVC.mapPreset("5"))
+	assert.Equal(t, "2", encAV1.mapPreset("2"))
+	assert.Equal(t, "3", encAV1.mapPreset("3"))
+	assert.Equal(t, "5", encAV1.mapPreset("5"))
+}
+
 func TestIs10Bit(t *testing.T) {
 	assert.True(t, is10Bit("yuv420p10le"))
 	assert.True(t, is10Bit("yuv422p10be"))
@@ -107,33 +154,57 @@ func TestGetPixFmt(t *testing.T) {
 	mockHelper.AssertExpectations(t)
 }
 
-func TestGetSVTAV1Params(t *testing.T) {
+func TestRecommendEncoderParamsAV1(t *testing.T) {
 	mockHelper := new(MockHelper)
 	originalFfprobeOutput := ffprobeOutput
 	ffprobeOutput = mockHelper.ffprobeOutput
 	defer func() { ffprobeOutput = originalFfprobeOutput }()
 
 	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeVideoPixelFormat).Return("yuv420p10le", nil)
-	params, err := recommendSVTAV1Params("input.mkv", false)
+	params, err := recommendEncoderParams("input.mkv", false, encAV1)
 	assert.NoError(t, err)
-	assert.Equal(t, "tune=0:enable-dlf=0:enable-cdef=0:input-depth=10", params)
+	assert.Equal(t, []string{"-svtav1-params", "tune=0:enable-dlf=0:enable-cdef=0:input-depth=10"}, params)
 	mockHelper.AssertExpectations(t)
 }
 
-func TestGetSVTAV1ParamsCompressed(t *testing.T) {
+func TestRecommendEncoderParamsAV1Compressed(t *testing.T) {
 	mockHelper := new(MockHelper)
 	originalFfprobeOutput := ffprobeOutput
 	ffprobeOutput = mockHelper.ffprobeOutput
 	defer func() { ffprobeOutput = originalFfprobeOutput }()
 
 	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeVideoPixelFormat).Return("yuv420p10le", nil)
-	params, err := recommendSVTAV1Params("input.mkv", true)
+	params, err := recommendEncoderParams("input.mkv", true, encAV1)
 	assert.NoError(t, err)
-	assert.Equal(t, "tune=2:enable-variance-boost=1:input-depth=10", params)
+	assert.Equal(t, []string{"-svtav1-params", "tune=2:enable-variance-boost=1:input-depth=10"}, params)
 	mockHelper.AssertExpectations(t)
 }
 
-func TestGetRecommendedParams(t *testing.T) {
+func TestRecommendEncoderParamsH264(t *testing.T) {
+	params, err := recommendEncoderParams("", false, encH264)
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"-tune", "film"}, params)
+}
+
+func TestRecommendEncoderParamsH264Compressed(t *testing.T) {
+	params, err := recommendEncoderParams("", true, encH264)
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"-tune", "animation"}, params)
+}
+
+func TestRecommendEncoderParamsHEVC(t *testing.T) {
+	params, err := recommendEncoderParams("", false, encHEVC)
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"-tune", "grain"}, params)
+}
+
+func TestRecommendEncoderParamsHEVCCompressed(t *testing.T) {
+	params, err := recommendEncoderParams("", true, encHEVC)
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"-tune", "animation"}, params)
+}
+
+func TestGetRecommendedParamsAV1(t *testing.T) {
 	mockHelper := new(MockHelper)
 	originalFfprobeOutput := ffprobeOutput
 	ffprobeOutput = mockHelper.ffprobeOutput
@@ -143,7 +214,7 @@ func TestGetRecommendedParams(t *testing.T) {
 	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeVideoWidth).Return("1920", nil).Times(2)
 	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeVideoPixelFormat).Return("yuv420p10le", nil).Times(2)
 
-	rec, err := getRecommendedParams("input.mkv", false)
+	rec, err := getRecommendedParams("input.mkv", false, encAV1)
 	assert.NoError(t, err)
 	assert.True(t, rec.HasVideoPrefs)
 	assert.Equal(t, "3", rec.VideoPreset)
@@ -151,7 +222,7 @@ func TestGetRecommendedParams(t *testing.T) {
 	mockHelper.AssertExpectations(t)
 }
 
-func TestGetRecommendedParamsCompressed(t *testing.T) {
+func TestGetRecommendedParamsAV1Compressed(t *testing.T) {
 	mockHelper := new(MockHelper)
 	originalFfprobeOutput := ffprobeOutput
 	ffprobeOutput = mockHelper.ffprobeOutput
@@ -161,14 +232,86 @@ func TestGetRecommendedParamsCompressed(t *testing.T) {
 	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeVideoWidth).Return("1920", nil)
 	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeVideoPixelFormat).Return("yuv420p10le", nil).Times(2)
 
-	rec, err := getRecommendedParams("input.mkv", true)
+	rec, err := getRecommendedParams("input.mkv", true, encAV1)
 	assert.NoError(t, err)
 	assert.True(t, rec.HasVideoPrefs)
-	assert.Equal(t, "5", rec.VideoPreset)
+	assert.Equal(t, "3", rec.VideoPreset)
 	assert.Equal(t, []string{
-		"-crf", "35",
+		"-crf", "33",
 		"-svtav1-params", "tune=2:enable-variance-boost=1:input-depth=10",
 		"-pix_fmt", "yuv420p10le",
 	}, rec.VideoArgs)
+	mockHelper.AssertExpectations(t)
+}
+
+func TestGetRecommendedParamsH264(t *testing.T) {
+	mockHelper := new(MockHelper)
+	originalFfprobeOutput := ffprobeOutput
+	ffprobeOutput = mockHelper.ffprobeOutput
+	defer func() { ffprobeOutput = originalFfprobeOutput }()
+
+	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeVideoBitrate).Return("2000000", nil)
+	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeVideoWidth).Return("1920", nil).Times(2)
+	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeVideoPixelFormat).Return("yuv420p10le", nil)
+
+	rec, err := getRecommendedParams("input.mkv", false, encH264)
+	assert.NoError(t, err)
+	assert.True(t, rec.HasVideoPrefs)
+	assert.Equal(t, "slow", rec.VideoPreset)
+	assert.Equal(t, []string{"-crf", "20", "-tune", "film", "-pix_fmt", "yuv420p10le"}, rec.VideoArgs)
+	mockHelper.AssertExpectations(t)
+}
+
+func TestGetRecommendedParamsH264Compressed(t *testing.T) {
+	mockHelper := new(MockHelper)
+	originalFfprobeOutput := ffprobeOutput
+	ffprobeOutput = mockHelper.ffprobeOutput
+	defer func() { ffprobeOutput = originalFfprobeOutput }()
+
+	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeVideoBitrate).Return("2000000", nil)
+	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeVideoWidth).Return("1920", nil)
+	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeVideoPixelFormat).Return("yuv420p10le", nil)
+
+	rec, err := getRecommendedParams("input.mkv", true, encH264)
+	assert.NoError(t, err)
+	assert.True(t, rec.HasVideoPrefs)
+	assert.Equal(t, "slow", rec.VideoPreset)
+	assert.Equal(t, []string{"-crf", "21", "-tune", "animation", "-pix_fmt", "yuv420p10le"}, rec.VideoArgs)
+	mockHelper.AssertExpectations(t)
+}
+
+func TestGetRecommendedParamsHEVC(t *testing.T) {
+	mockHelper := new(MockHelper)
+	originalFfprobeOutput := ffprobeOutput
+	ffprobeOutput = mockHelper.ffprobeOutput
+	defer func() { ffprobeOutput = originalFfprobeOutput }()
+
+	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeVideoBitrate).Return("2000000", nil)
+	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeVideoWidth).Return("1920", nil).Times(2)
+	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeVideoPixelFormat).Return("yuv420p10le", nil)
+
+	rec, err := getRecommendedParams("input.mkv", false, encHEVC)
+	assert.NoError(t, err)
+	assert.True(t, rec.HasVideoPrefs)
+	assert.Equal(t, "slow", rec.VideoPreset)
+	assert.Equal(t, []string{"-crf", "22", "-tune", "grain", "-pix_fmt", "yuv420p10le"}, rec.VideoArgs)
+	mockHelper.AssertExpectations(t)
+}
+
+func TestGetRecommendedParamsHEVCCompressed(t *testing.T) {
+	mockHelper := new(MockHelper)
+	originalFfprobeOutput := ffprobeOutput
+	ffprobeOutput = mockHelper.ffprobeOutput
+	defer func() { ffprobeOutput = originalFfprobeOutput }()
+
+	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeVideoBitrate).Return("2000000", nil)
+	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeVideoWidth).Return("1920", nil)
+	mockHelper.On("ffprobeOutput", "input.mkv", ffprobeVideoPixelFormat).Return("yuv420p10le", nil)
+
+	rec, err := getRecommendedParams("input.mkv", true, encHEVC)
+	assert.NoError(t, err)
+	assert.True(t, rec.HasVideoPrefs)
+	assert.Equal(t, "slow", rec.VideoPreset)
+	assert.Equal(t, []string{"-crf", "23", "-tune", "animation", "-pix_fmt", "yuv420p10le"}, rec.VideoArgs)
 	mockHelper.AssertExpectations(t)
 }

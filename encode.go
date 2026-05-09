@@ -15,7 +15,7 @@ func run(cfg config) error {
 	var rec recommendedParams
 	var err error
 	if cfg.UseRecommendedVideo || cfg.UseRecommendedAudio {
-		rec, err = getRecommendedParams(cfg.InputPath, cfg.CompressedSource)
+		rec, err = getRecommendedParams(cfg.InputPath, cfg.CompressedSource, cfg.Encoder)
 		if err != nil {
 			return err
 		}
@@ -90,8 +90,8 @@ func buildFFmpegArgs(cfg config, rec recommendedParams) ([]string, error) {
 		args = append(args, "-vf", strings.Join(filters, ","))
 	}
 
-	if cfg.VideoCodec != "" {
-		args = append(args, "-c:v", cfg.VideoCodec)
+	if cfg.Encoder != "" {
+		args = append(args, "-c:v", cfg.Encoder.codec())
 	}
 	if cfg.UseRecommendedVideo && rec.HasVideoPrefs {
 		args = append(args, rec.VideoArgs...)

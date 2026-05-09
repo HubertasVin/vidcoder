@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -8,13 +9,76 @@ import (
 
 var osStat = os.Stat
 
+type encoderType string
+
+const (
+	encH264 encoderType = "H264"
+	encAV1  encoderType = "AV1"
+	encHEVC encoderType = "HEVC"
+)
+
+func parseEncoder(s string) (encoderType, error) {
+	switch s {
+	case "H264":
+		return encH264, nil
+	case "AV1":
+		return encAV1, nil
+	case "HEVC":
+		return encHEVC, nil
+	default:
+		return "", fmt.Errorf("invalid encoder: %s (valid: H264, AV1, HEVC)", s)
+	}
+}
+
+func (e encoderType) codec() string {
+	switch e {
+	case encH264:
+		return "libx264"
+	case encAV1:
+		return "libsvtav1"
+	case encHEVC:
+		return "libx265"
+	}
+	return ""
+}
+
+func (e encoderType) mapCRF(av1CRF int) int {
+	switch e {
+	case encH264:
+		return av1CRF - 12
+	case encAV1:
+		return av1CRF
+	case encHEVC:
+		return av1CRF - 10
+	}
+	return av1CRF
+}
+
+func (e encoderType) mapPreset(av1Preset string) string {
+	switch e {
+	case encH264, encHEVC:
+		switch av1Preset {
+		case "2":
+			return "slower"
+		case "3":
+			return "slow"
+		case "5":
+			return "medium"
+		default:
+			return "slow"
+		}
+	default:
+		return av1Preset
+	}
+}
+
 type recommendedParams struct {
 	VideoArgs     []string
 	VideoPreset   string
 	HasVideoPrefs bool
 }
 
-func getRecommendedParams(input string, compressedSource bool) (recommendedParams, error) {
+func getRecommendedParams(input string, compressedSource bool, enc encoderType) (recommendedParams, error) {
 	var rec recommendedParams
 
 	crf, err := recommendCRF(input)
@@ -22,18 +86,17 @@ func getRecommendedParams(input string, compressedSource bool) (recommendedParam
 		return rec, err
 	}
 	if compressedSource {
-		crf += 1
+		crf += 2
 	}
-	svtParams, err := recommendSVTAV1Params(input, compressedSource)
+	mappedCRF := enc.mapCRF(crf)
+
+	encParams, err := recommendEncoderParams(input, compressedSource, enc)
 	if err != nil {
 		return rec, err
 	}
-	rec.VideoArgs = []string{
-		"-crf", strconv.Itoa(crf),
-		"-svtav1-params", svtParams,
-	}
+	rec.VideoArgs = append([]string{"-crf", strconv.Itoa(mappedCRF)}, encParams...)
 
-	rec.VideoPreset, err = recommendPreset(input)
+	rec.VideoPreset, err = recommendPreset(input, enc)
 	if err != nil {
 		return rec, err
 	}
@@ -61,26 +124,44 @@ func recommendPixFmt(input string) (string, error) {
 	return "", nil
 }
 
-func recommendSVTAV1Params(input string, compressedSource bool) (string, error) {
-	pixFmt, err := ffprobeOutput(input, ffprobeVideoPixelFormat)
-	if err != nil {
-		return "", err
+func recommendEncoderParams(input string, compressedSource bool, enc encoderType) ([]string, error) {
+	switch enc {
+	case encAV1:
+		pixFmt, err := ffprobeOutput(input, ffprobeVideoPixelFormat)
+		if err != nil {
+			return nil, err
+		}
+		return recommendSVTAV1Args(pixFmt, compressedSource), nil
+	case encH264:
+		tune := "film"
+		if compressedSource {
+			tune = "animation"
+		}
+		return []string{"-tune", tune}, nil
+	case encHEVC:
+		tune := "grain"
+		if compressedSource {
+			tune = "animation"
+		}
+		return []string{"-tune", tune}, nil
 	}
+	return nil, nil
+}
 
+func recommendSVTAV1Args(pixFmt string, compressedSource bool) []string {
 	if compressedSource {
 		svtParams := "tune=2:enable-variance-boost=1"
 		if is10Bit(pixFmt) {
 			svtParams += ":input-depth=10"
 		}
-		return svtParams, nil
+		return []string{"-svtav1-params", svtParams}
 	}
 
 	svtParams := "tune=0:enable-dlf=0:enable-cdef=0"
 	if is10Bit(pixFmt) {
 		svtParams += ":input-depth=10"
 	}
-
-	return svtParams, nil
+	return []string{"-svtav1-params", svtParams}
 }
 
 func recommendCRF(input string) (int, error) {
@@ -97,7 +178,7 @@ func recommendCRF(input string) (int, error) {
 	return resAndRateToCRF(width, rate), nil
 }
 
-func recommendPreset(input string) (string, error) {
+func recommendPreset(input string, enc encoderType) (string, error) {
 	widthRaw, err := ffprobeOutput(input, ffprobeVideoWidth)
 	if err != nil {
 		return "", err
@@ -105,12 +186,15 @@ func recommendPreset(input string) (string, error) {
 
 	width, err := strconv.Atoi(strings.TrimSpace(widthRaw))
 	if err != nil {
-		return "3", nil
+		return enc.mapPreset("3"), nil
 	}
+	var av1Preset string
 	if width >= 3840 {
-		return "2", nil
+		av1Preset = "2"
+	} else {
+		av1Preset = "3"
 	}
-	return "3", nil
+	return enc.mapPreset(av1Preset), nil
 }
 
 func getVideoBitrate(input string) (int, error) {

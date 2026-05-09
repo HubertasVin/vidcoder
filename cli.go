@@ -27,7 +27,7 @@ type config struct {
 
 	ShowVersion bool
 
-	VideoCodec string
+	Encoder    encoderType
 	AudioCodec string
 
 	VideoCRF     string
@@ -42,7 +42,8 @@ type config struct {
 	CompressedSource bool
 	Denoise          bool
 
-	videoCodecSet bool
+	encoderRaw    string
+	encoderSet    bool
 	audioCodecSet bool
 }
 
@@ -70,8 +71,16 @@ func parseArgs(args []string) (config, error) {
 		return cfg, errHelp
 	}
 
-	cfg.videoCodecSet = fs.Changed("video-codec")
+	cfg.encoderSet = fs.Changed("encoder")
 	cfg.audioCodecSet = fs.Changed("audio-codec")
+
+	if cfg.encoderRaw != "" {
+		enc, err := parseEncoder(cfg.encoderRaw)
+		if err != nil {
+			return cfg, err
+		}
+		cfg.Encoder = enc
+	}
 
 	if cfg.ShowVersion {
 		if len(fs.Args()) > 0 {
@@ -111,8 +120,8 @@ func parseArgs(args []string) (config, error) {
 	if cfg.UseRecommendedAll {
 		cfg.UseRecommendedVideo = true
 		cfg.UseRecommendedAudio = true
-		if !cfg.videoCodecSet {
-			cfg.VideoCodec = "libsvtav1"
+		if !cfg.encoderSet {
+			cfg.Encoder = encAV1
 		}
 		if !cfg.audioCodecSet {
 			cfg.AudioCodec = "libopus"
@@ -147,7 +156,7 @@ func newFlagSet(cfg *config, output io.Writer) (*pflag.FlagSet, *bool) {
 	fs.BoolVar(&cfg.UseRecommendedAll, "recommended", false, "recommended settings")
 	fs.BoolVar(&cfg.UseRecommendedVideo, "recommended-video", false, "recommended video settings")
 	fs.BoolVar(&cfg.UseRecommendedAudio, "recommended-audio", false, "recommended audio settings")
-	fs.StringVar(&cfg.VideoCodec, "video-codec", "", "video codec")
+	fs.StringVar(&cfg.encoderRaw, "encoder", "", "video encoder (H264, AV1, HEVC)")
 	fs.StringVar(&cfg.AudioCodec, "audio-codec", "", "audio codec")
 	fs.StringVar(&cfg.VideoCRF, "crf", "", "video quality CRF value")
 	fs.StringVar(&cfg.VideoPreset, "preset", "", "video encoder preset")
