@@ -156,3 +156,36 @@ func getRealVideoBitrate(input string) (int, error) {
 
 	return 0, nil
 }
+
+func getSubtitleStreamCodecs(input string) (map[int]string, error) {
+	args := []string{
+		"-v", "error",
+		"-select_streams", "s",
+		"-show_entries", "stream=index,codec_name",
+		"-of", "csv=p=0",
+		input,
+	}
+
+	res, err := runFfprobe(args...)
+	if err != nil {
+		return nil, err
+	}
+
+	streams := make(map[int]string)
+	for rawLine := range strings.SplitSeq(res, "\n") {
+		line := strings.TrimSpace(rawLine)
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, ",", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		idx, err := strconv.Atoi(strings.TrimSpace(parts[0]))
+		if err != nil {
+			continue
+		}
+		streams[idx] = strings.TrimSpace(parts[1])
+	}
+	return streams, nil
+}

@@ -79,8 +79,13 @@ func buildFFmpegArgs(cfg config, rec recommendedParams) ([]string, error) {
 		"-i", cfg.InputPath,
 		"-map", "0:v?",
 		"-map", "0:a?",
-		"-map", "0:s?",
 	}
+
+	subMaps, err := subtitleStreamMaps(cfg.InputPath)
+	if err != nil {
+		return nil, err
+	}
+	args = append(args, subMaps...)
 
 	filters, err := buildVideoFilters(cfg)
 	if err != nil {
@@ -161,4 +166,34 @@ func buildVideoFilters(cfg config) ([]string, error) {
 	}
 
 	return filters, nil
+}
+
+var matroskaSupportedSubCodecs = map[string]bool{
+	"ass":              true,
+	"ssa":              true,
+	"srt":              true,
+	"subrip":           true,
+	"dvd_subtitle":     true,
+	"dvdsub":           true,
+	"hdmv_pgs_subtitle": true,
+	"pgs":              true,
+	"mov_text":         true,
+	"webvtt":           true,
+}
+
+func subtitleStreamMaps(input string) ([]string, error) {
+	codecs, err := getSubtitleStreamCodecs(input)
+	if err != nil {
+		return []string{"-map", "0:s?"}, nil
+	}
+
+	var maps []string
+	for idx, codec := range codecs {
+		if matroskaSupportedSubCodecs[codec] {
+			maps = append(maps, "-map", fmt.Sprintf("0:%d", idx))
+		} else {
+			fmt.Fprintf(os.Stderr, "Skipping unsupported subtitle stream %d (%s)\n", idx, codec)
+		}
+	}
+	return maps, nil
 }

@@ -237,7 +237,7 @@ func TestGetRecommendedParamsAV1Compressed(t *testing.T) {
 	assert.True(t, rec.HasVideoPrefs)
 	assert.Equal(t, "3", rec.VideoPreset)
 	assert.Equal(t, []string{
-		"-crf", "33",
+		"-crf", "34",
 		"-svtav1-params", "tune=2:enable-variance-boost=1:input-depth=10",
 		"-pix_fmt", "yuv420p10le",
 	}, rec.VideoArgs)
@@ -276,7 +276,7 @@ func TestGetRecommendedParamsH264Compressed(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, rec.HasVideoPrefs)
 	assert.Equal(t, "slow", rec.VideoPreset)
-	assert.Equal(t, []string{"-crf", "21", "-tune", "animation", "-pix_fmt", "yuv420p10le"}, rec.VideoArgs)
+	assert.Equal(t, []string{"-crf", "22", "-tune", "animation", "-pix_fmt", "yuv420p10le"}, rec.VideoArgs)
 	mockHelper.AssertExpectations(t)
 }
 
@@ -312,6 +312,6 @@ func TestGetRecommendedParamsHEVCCompressed(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, rec.HasVideoPrefs)
 	assert.Equal(t, "slow", rec.VideoPreset)
-	assert.Equal(t, []string{"-crf", "23", "-tune", "animation", "-pix_fmt", "yuv420p10le"}, rec.VideoArgs)
+	assert.Equal(t, []string{"-crf", "24", "-tune", "animation", "-pix_fmt", "yuv420p10le"}, rec.VideoArgs)
 	mockHelper.AssertExpectations(t)
 }
