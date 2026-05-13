@@ -177,7 +177,6 @@ var matroskaSupportedSubCodecs = map[string]bool{
 	"dvdsub":           true,
 	"hdmv_pgs_subtitle": true,
 	"pgs":              true,
-	"mov_text":         true,
 	"webvtt":           true,
 }
 
