@@ -196,8 +196,8 @@ func buildVideoFilters(cfg config) ([]string, error) {
 
 	if cfg.Denoise {
 		filters = append(filters,
-			"nlmeans=s=1:p=7:pc=5:r=3:rc=3",
-			"unsharp=7:7:2.5",
+			"nlmeans=s=15:p=7:pc=5:r=3:rc=3",
+			"unsharp=3:3:1.5",
 		)
 	}
 
