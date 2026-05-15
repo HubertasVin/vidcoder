@@ -25,12 +25,49 @@ func run(cfg config) error {
 		return err
 	}
 
-	args, err := buildFFmpegArgs(cfg, rec)
+	if cfg.TwoPass {
+		return runTwoPass(cfg, rec)
+	}
+
+	args, err := buildFFmpegArgs(cfg, rec, 0)
 	if err != nil {
 		return err
 	}
 
 	return runFFmpegWithRetry(args, cfg.OutputPath)
+}
+
+func runTwoPass(cfg config, rec recommendedParams) error {
+	passlogfile := cfg.OutputPath + ".log"
+
+	args1, err := buildFFmpegArgs(cfg, rec, 1)
+	if err != nil {
+		return err
+	}
+	args1 = append(args1, "-pass", "1", "-passlogfile", passlogfile, "-an", "-f", "null", "/dev/null")
+
+	cmd1 := exec.Command("ffmpeg", args1...)
+	cmd1.Stdin = os.Stdin
+	cmd1.Stdout = os.Stdout
+	cmd1.Stderr = os.Stderr
+	fmt.Fprintln(os.Stderr, "--- Pass 1/2 ---")
+	if err := cmd1.Run(); err != nil {
+		return fmt.Errorf("pass 1 failed: %w", err)
+	}
+
+	args2, err := buildFFmpegArgs(cfg, rec, 2)
+	if err != nil {
+		return err
+	}
+	args2 = append(args2, "-pass", "2", "-passlogfile", passlogfile)
+	fmt.Fprintln(os.Stderr, "--- Pass 2/2 ---")
+
+	result := runFFmpegWithRetry(args2, cfg.OutputPath)
+
+	os.Remove(passlogfile)
+	os.Remove(passlogfile + ".cue")
+
+	return result
 }
 
 func runFFmpegWithRetry(args []string, outputPath string) error {
@@ -72,7 +109,7 @@ func isKilledProcessError(err error) bool {
 	return ok && status.Signaled() && status.Signal() == syscall.SIGKILL
 }
 
-func buildFFmpegArgs(cfg config, rec recommendedParams) ([]string, error) {
+func buildFFmpegArgs(cfg config, rec recommendedParams, _ int) ([]string, error) {
 	args := []string{
 		"-threads", "0",
 		"-n",
