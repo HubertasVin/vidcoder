@@ -195,26 +195,25 @@ func buildVideoFilters(cfg config) ([]string, error) {
 	}
 
 	if cfg.Denoise {
-		if cfg.CompressedSource {
-			filters = append(filters, "hqdn3d=2:1.5:3:3")
-		} else {
-			filters = append(filters, "hqdn3d=1.5:1.5:6:6")
-		}
+		filters = append(filters,
+			"nlmeans=s=1:p=7:pc=5:r=3:rc=3",
+			"unsharp=7:7:2.5",
+		)
 	}
 
 	return filters, nil
 }
 
 var matroskaSupportedSubCodecs = map[string]bool{
-	"ass":              true,
-	"ssa":              true,
-	"srt":              true,
-	"subrip":           true,
-	"dvd_subtitle":     true,
-	"dvdsub":           true,
+	"ass":               true,
+	"ssa":               true,
+	"srt":               true,
+	"subrip":            true,
+	"dvd_subtitle":      true,
+	"dvdsub":            true,
 	"hdmv_pgs_subtitle": true,
-	"pgs":              true,
-	"webvtt":           true,
+	"pgs":               true,
+	"webvtt":            true,
 }
 
 func subtitleStreamMaps(input string) ([]string, error) {

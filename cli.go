@@ -167,7 +167,7 @@ func newFlagSet(cfg *config, output io.Writer) (*pflag.FlagSet, *bool) {
 	fs.StringVarP(&cfg.ExtraFFmpeg, "ffmpeg", "f", "", "additional ffmpeg arguments")
 	fs.BoolVar(&cfg.TwoPass, "two-pass", false, "use 2-pass encoding for better quality at same bitrate")
 	fs.BoolVar(&cfg.CompressedSource, "compressed-source", false, "source is already compressed; increase CRF and tune for compression artifacts")
-	fs.BoolVar(&cfg.Denoise, "denoise", false, "apply hqdn3d denoise filter")
+	fs.BoolVar(&cfg.Denoise, "denoise", false, "apply nlmeans and unsharp denoise filters")
 
 	return fs, &helpRequested
 }
