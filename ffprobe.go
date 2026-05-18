@@ -189,3 +189,52 @@ func getSubtitleStreamCodecs(input string) (map[int]string, error) {
 	}
 	return streams, nil
 }
+
+func getCoverImageStreamIndices(input string) (map[int]bool, error) {
+	args := []string{
+		"-v", "error",
+		"-select_streams", "v",
+		"-show_entries", "stream=index,codec_name:stream_tags=FILENAME,MIMETYPE",
+		"-of", "csv=p=0",
+		input,
+	}
+
+	res, err := runFfprobe(args...)
+	if err != nil {
+		return nil, err
+	}
+
+	coverStreams := make(map[int]bool)
+	for rawLine := range strings.SplitSeq(res, "\n") {
+		line := strings.TrimSpace(rawLine)
+		if line == "" {
+			continue
+		}
+		parts := strings.Split(line, ",")
+		if len(parts) < 2 {
+			continue
+		}
+
+		idx, err := strconv.Atoi(strings.TrimSpace(parts[0]))
+		if err != nil {
+			continue
+		}
+
+		codecName := strings.TrimSpace(parts[1])
+		if codecName != "mjpeg" {
+			continue
+		}
+
+		for _, p := range parts[2:] {
+			p = strings.TrimSpace(p)
+			if p == "N/A" || p == "" {
+				continue
+			}
+			if strings.HasPrefix(p, "cover.") || strings.Contains(p, "image/") {
+				coverStreams[idx] = true
+				break
+			}
+		}
+	}
+	return coverStreams, nil
+}

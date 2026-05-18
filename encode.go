@@ -114,9 +114,15 @@ func buildFFmpegArgs(cfg config, rec recommendedParams, _ int) ([]string, error)
 		"-threads", "0",
 		"-n",
 		"-i", cfg.InputPath,
-		"-map", "0:v?",
-		"-map", "0:a?",
 	}
+
+	videoMaps, err := videoStreamMaps(cfg.InputPath)
+	if err != nil {
+		return nil, err
+	}
+	args = append(args, videoMaps...)
+
+	args = append(args, "-map", "0:a?")
 
 	subMaps, err := subtitleStreamMaps(cfg.InputPath)
 	if err != nil {
@@ -229,6 +235,19 @@ func subtitleStreamMaps(input string) ([]string, error) {
 		} else {
 			fmt.Fprintf(os.Stderr, "Skipping unsupported subtitle stream %d (%s)\n", idx, codec)
 		}
+	}
+	return maps, nil
+}
+
+func videoStreamMaps(input string) ([]string, error) {
+	coverStreams, err := getCoverImageStreamIndices(input)
+	if err != nil || len(coverStreams) == 0 {
+		return []string{"-map", "0:v?"}, nil
+	}
+
+	maps := []string{"-map", "0:v?"}
+	for idx := range coverStreams {
+		maps = append(maps, "-map", fmt.Sprintf("-0:%d", idx))
 	}
 	return maps, nil
 }
