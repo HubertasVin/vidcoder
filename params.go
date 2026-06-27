@@ -242,25 +242,21 @@ func getTotalBitrate(input string) (int, error) {
 func resAndRateToCRF(res, rate int) int {
 	switch {
 	case res >= 3840:
-		if rate >= 5_000_000 {
-			return 30
-		} else {
-			return 32
-		}
+		return rateToCrfWithThreshold(rate, 5_000_000)
 	case res >= 1920:
-		if rate >= 2_000_000 {
-			return 31
-		} else {
-			return 32
-		}
+		return rateToCrfWithThreshold(rate, 2_000_000)
 	case res >= 720:
-		if rate >= 1_000_000 {
-			return 31
-		} else {
-			return 32
-		}
+		return rateToCrfWithThreshold(rate, 1_000_000)
 	default:
-		return 32
+		return 30
+	}
+}
+
+func rateToCrfWithThreshold(rate, threshold int) int {
+	if rate >= threshold {
+		return 30
+	} else {
+		return 31
 	}
 }
 
